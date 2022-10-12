@@ -1092,6 +1092,11 @@ handle_global(void *data, struct wl_registry *registry,
         }
     }
 
+    else if (strcmp(interface, wp_fractional_scale_global_interface.name) == 0) {
+      wayl->fractional_scale = wl_registry_bind(
+          wayl->registry, name, &wp_fractional_scale_global_interface, 1);
+    }
+
 #if defined(HAVE_XDG_ACTIVATION)
     else if (strcmp(interface, xdg_activation_v1_interface.name) == 0) {
         const uint32_t required = 1;

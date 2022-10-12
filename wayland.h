@@ -15,6 +15,7 @@
 #include <xdg-decoration-unstable-v1.h>
 #include <xdg-output-unstable-v1.h>
 #include <xdg-shell.h>
+#include <fractional-scale-v1.h>
 
 #if defined(HAVE_XDG_ACTIVATION)
  #include <xdg-activation-v1.h>
@@ -412,6 +413,8 @@ struct wayland {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct zwp_text_input_manager_v3 *text_input_manager;
 #endif
+
+    struct wp_fractional_scale_global *fractional_scale;
 
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
