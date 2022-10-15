@@ -293,6 +293,8 @@ struct monitor {
 struct wl_surf_subsurf {
     struct wl_surface *surf;
     struct wl_subsurface *sub;
+    struct wp_fractional_scale_v1 *fractional_scale;
+    double fractional_scale_value;
 };
 
 struct wl_url {
@@ -330,6 +332,8 @@ struct wl_window {
 #endif
 
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
+    struct wp_fractional_scale_v1 *fractional_scale;
+    float fractional_scale_value;
 
     enum csd_mode csd_mode;
 

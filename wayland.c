@@ -693,8 +693,13 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     win->configure.is_tiled_bottom = is_tiled_bottom;
     win->configure.is_tiled_left = is_tiled_left;
     win->configure.is_tiled_right = is_tiled_right;
-    win->configure.width = width;
-    win->configure.height = height;
+    // TODO: This is not the correct order ...
+    double fractional_scale_value = win->fractional_scale_value;
+    if (fractional_scale_value == 0.)
+        fractional_scale_value = 1.;
+    win->configure.width = width / fractional_scale_value;
+    win->configure.height = height / fractional_scale_value;
+    // printf("XDG toplevel configure %d %d %lf\n", width, height, fractional_scale_value);
 }
 
 static void
@@ -868,6 +873,31 @@ xdg_toplevel_decoration_configure(void *data,
 
 static const struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration_listener = {
     .configure = &xdg_toplevel_decoration_configure,
+};
+
+static void
+fractional_scale_scale_factor(void *data,
+                       struct wp_fractional_scale_v1 *fractional_scale,
+                       uint32_t scale_8_24) {
+    struct wl_window *win = data;
+    win->fractional_scale_value = (double)scale_8_24 / (1 << 24);
+    printf("Setting scale to %lf\n", win->fractional_scale_value);
+}
+
+static const struct wp_fractional_scale_v1_listener fractional_scale_listener = {
+    .scale_factor = &fractional_scale_scale_factor,
+};
+
+static void
+fractional_scale_scale_factor_subsurface(void *data,
+                       struct wp_fractional_scale_v1 *fractional_scale,
+                       uint32_t scale_8_24) {
+    struct wl_surf_subsurf *surf = data;
+    surf->fractional_scale_value = (double)scale_8_24 / (1 << 24);
+}
+
+static const struct wp_fractional_scale_v1_listener fractional_scale_listener_subsurface = {
+    .scale_factor = &fractional_scale_scale_factor_subsurface,
 };
 
 static bool
@@ -1430,6 +1460,8 @@ wayl_destroy(struct wayland *wayl)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
     if (wayl->shell != NULL)
         xdg_wm_base_destroy(wayl->shell);
+    if (wayl->fractional_scale != NULL)
+        wp_fractional_scale_global_destroy(wayl->fractional_scale);
     if (wayl->xdg_decoration_manager != NULL)
         zxdg_decoration_manager_v1_destroy(wayl->xdg_decoration_manager);
     if (wayl->presentation != NULL)
@@ -1481,6 +1513,10 @@ wayl_win_init(struct terminal *term, const char *token)
         LOG_ERR("failed to create wayland surface");
         goto out;
     }
+    win->fractional_scale = wp_fractional_scale_global_get_fractional_scale(
+        wayl->fractional_scale, win->surface);
+    wp_fractional_scale_v1_add_listener(win->fractional_scale, &fractional_scale_listener, win);
+    win->fractional_scale_value = 0.;
 
     if (term->colors.alpha == 0xffff) {
         struct wl_region *region = wl_compositor_create_region(
@@ -1658,6 +1694,8 @@ wayl_win_destroy(struct wl_window *win)
         xdg_surface_destroy(win->xdg_surface);
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
+    if (win->fractional_scale != NULL)
+        wp_fractional_scale_v1_destroy(win->fractional_scale);
 
     wayl_roundtrip(win->term->wl);
 
@@ -1842,6 +1880,7 @@ wayl_win_subsurface_new_with_custom_parent(
 
     surf->surf = NULL;
     surf->sub = NULL;
+    surf->fractional_scale = NULL;
 
     struct wl_surface *main_surface
         = wl_compositor_create_surface(wayl->compositor);
@@ -1870,6 +1909,13 @@ wayl_win_subsurface_new_with_custom_parent(
 
     surf->surf = main_surface;
     surf->sub = sub;
+
+    if (wayl->fractional_scale) {
+        surf->fractional_scale = wp_fractional_scale_global_get_fractional_scale(
+            wayl->fractional_scale, surf->surf);
+        wp_fractional_scale_v1_add_listener(win->fractional_scale, &fractional_scale_listener_subsurface, surf);
+        win->fractional_scale_value = 0.;
+    }
     return true;
 }
 
@@ -1890,9 +1936,12 @@ wayl_win_subsurface_destroy(struct wl_surf_subsurf *surf)
         wl_subsurface_destroy(surf->sub);
     if (surf->surf != NULL)
         wl_surface_destroy(surf->surf);
+    if (surf->fractional_scale != NULL)
+        wp_fractional_scale_v1_destroy(surf->fractional_scale);
 
     surf->surf = NULL;
     surf->sub = NULL;
+    surf->fractional_scale = NULL;
 }
 
 #if defined(HAVE_XDG_ACTIVATION)

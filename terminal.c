@@ -3675,3 +3675,14 @@ term_set_user_mouse_cursor(struct terminal *term, const char *cursor)
     term->mouse_user_cursor = cursor != NULL ? xstrdup(cursor) : NULL;
     term_xcursor_update(term);
 }
+
+int
+term_get_buffer_scale(struct terminal *term)
+{
+    if (term->window->fractional_scale != NULL)
+        return 1;
+    // if ((double) ((int) term->scale) == term->scale)
+    //     return term->scale;
+    // return 1;
+    return term->scale;
+}

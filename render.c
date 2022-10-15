@@ -1668,7 +1668,11 @@ render_overlay(struct terminal *term)
 
     quirk_weston_subsurface_desync_on(overlay->sub);
     wl_subsurface_set_position(overlay->sub, 0, 0);
-    wl_surface_set_buffer_scale(overlay->surf, term->scale);
+    wl_surface_set_buffer_scale(overlay->surf, term_get_buffer_scale(term));
+    if (overlay->fractional_scale != NULL)
+        wp_fractional_scale_v1_set_scale_factor(
+            overlay->fractional_scale, (uint32_t)(term->scale * (1 << 24)));
+
     wl_surface_attach(overlay->surf, buf->wl_buf, 0, 0);
 
     wl_surface_damage_buffer(
@@ -1806,8 +1810,8 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
 static void
 csd_commit(struct terminal *term, struct wl_surface *surf, struct buffer *buf)
 {
-    xassert(buf->width % term->scale == 0);
-    xassert(buf->height % term->scale == 0);
+    // xassert(buf->width % term->scale == 0);
+    // xassert(buf->height % term->scale == 0);
 
     wl_surface_attach(surf, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
@@ -1902,8 +1906,8 @@ render_osd(struct terminal *term,
     pixman_image_unref(src);
     pixman_image_set_clip_region32(buf->pix[0], NULL);
 
-    xassert(buf->width % term->scale == 0);
-    xassert(buf->height % term->scale == 0);
+    // xassert(buf->width % term->scale == 0);
+    // xassert(buf->height % term->scale == 0);
 
     quirk_weston_subsurface_desync_on(sub_surf);
     wl_surface_attach(surf, buf->wl_buf, 0, 0);
@@ -1931,8 +1935,8 @@ render_csd_title(struct terminal *term, const struct csd_data *info,
     if (info->width == 0 || info->height == 0)
         return;
 
-    xassert(info->width % term->scale == 0);
-    xassert(info->height % term->scale == 0);
+    // xassert(info->width % term->scale == 0);
+    // xassert(info->height % term->scale == 0);
 
     uint32_t bg = term->conf->csd.color.title_set
         ? term->conf->csd.color.title
@@ -1976,8 +1980,8 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx,
     if (info->width == 0 || info->height == 0)
         return;
 
-    xassert(info->width % term->scale == 0);
-    xassert(info->height % term->scale == 0);
+    // xassert(info->width % term->scale == 0);
+    // xassert(info->height % term->scale == 0);
 
     {
         pixman_color_t color = color_hex_to_pixman_with_alpha(0, 0);
@@ -2230,8 +2234,8 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx,
     if (info->width == 0 || info->height == 0)
         return;
 
-    xassert(info->width % term->scale == 0);
-    xassert(info->height % term->scale == 0);
+    // xassert(info->width % term->scale == 0);
+    // xassert(info->height % term->scale == 0);
 
     uint32_t _color;
     uint16_t alpha = 0xffff;
@@ -2969,7 +2973,10 @@ grid_render(struct terminal *term)
     term->window->frame_callback = wl_surface_frame(term->window->surface);
     wl_callback_add_listener(term->window->frame_callback, &frame_listener, term);
 
-    wl_surface_set_buffer_scale(term->window->surface, term->scale);
+    wl_surface_set_buffer_scale(term->window->surface, term_get_buffer_scale(term));
+    if (term->window->fractional_scale != NULL)
+        wp_fractional_scale_v1_set_scale_factor(
+            term->window->fractional_scale, (uint32_t)(term->scale * (1 << 24)));
 
     if (term->wl->presentation != NULL && term->conf->presentation_timings) {
         struct timespec commit_time;
@@ -3003,8 +3010,8 @@ grid_render(struct terminal *term)
             term->window->surface, 0, 0, INT32_MAX, INT32_MAX);
     }
 
-    xassert(buf->width % term->scale == 0);
-    xassert(buf->height % term->scale == 0);
+    // xassert(buf->width % term->scale == 0);
+    // xassert(buf->height % term->scale == 0);
 
     wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
     wl_surface_commit(term->window->surface);
@@ -3802,16 +3809,19 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     if (term->cell_width == 0 && term->cell_height == 0)
         return false;
 
-    int scale = -1;
+    double scale = -1;
     tll_foreach(term->window->on_outputs, it) {
         if (it->item->scale > scale)
             scale = it->item->scale;
     }
+    if (term->window->fractional_scale_value != 0.)
+        scale = term->window->fractional_scale_value;
 
     if (scale < 0) {
         /* Haven't 'entered' an output yet? */
         scale = term->scale;
     }
+    printf("Using scale to %lf %lf (%d, %d)\n", scale, term->window->fractional_scale_value, width, height);
 
     width *= scale;
     height *= scale;
@@ -3856,13 +3866,13 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
                  * Ensure we can scale to logical size, and back to
                  * pixels without truncating.
                  */
-                if (width % scale)
-                    width += scale - width % scale;
-                if (height % scale)
-                    height += scale - height % scale;
+                // if (width % scale)
+                //     width += scale - width % scale;
+                // if (height % scale)
+                //     height += scale - height % scale;
 
-                xassert(width % scale == 0);
-                xassert(height % scale == 0);
+                // xassert(width % scale == 0);
+                // xassert(height % scale == 0);
                 break;
             }
         }
@@ -4118,10 +4128,10 @@ damage_view:
 
         xdg_surface_set_window_geometry(
             term->window->xdg_surface,
-            -border_width,
-            -title_height - border_width,
-            term->width / term->scale + 2 * border_width,
-            term->height / term->scale + title_height + 2 * border_width);
+            -border_width * scale,
+            (-title_height - border_width) * scale,
+            (term->width / term->scale + 2 * border_width) * scale,
+            (term->height / term->scale + title_height + 2 * border_width) * scale);
     }
 
     tll_free(term->normal.scroll_damage);

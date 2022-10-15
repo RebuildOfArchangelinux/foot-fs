@@ -1228,7 +1228,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 if (width >= 0 && height >= 0) {
                     char reply[64];
                     size_t n = xsnprintf(reply, sizeof(reply), "\033[4;%d;%dt",
-                             height / term->scale, width / term->scale);
+                             (int) (height / term->scale), (int) (width / term->scale));
                     term_to_slave(term, reply, n);
                 }
                 break;
@@ -1251,8 +1251,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
             case 16: { /* report cell size in pixels */
                 char reply[64];
                 size_t n = xsnprintf(reply, sizeof(reply), "\033[6;%d;%dt",
-                         term->cell_height / term->scale,
-                         term->cell_width / term->scale);
+                         (int) (term->cell_height / term->scale),
+                         (int) (term->cell_width / term->scale));
                 term_to_slave(term, reply, n);
                 break;
             }
@@ -1269,8 +1269,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 tll_foreach(term->window->on_outputs, it) {
                     char reply[64];
                     size_t n = xsnprintf(reply, sizeof(reply), "\033[9;%d;%dt",
-                             it->item->dim.px_real.height / term->cell_height / term->scale,
-                             it->item->dim.px_real.width / term->cell_width / term->scale);
+                             (int) (it->item->dim.px_real.height / term->cell_height / term->scale),
+                             (int) (it->item->dim.px_real.width / term->cell_width / term->scale));
                     term_to_slave(term, reply, n);
                     break;
                 }

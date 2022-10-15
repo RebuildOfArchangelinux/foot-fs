@@ -450,7 +450,7 @@ struct terminal {
         int fd;
     } blink;
 
-    int scale;
+    double scale;
     int width;  /* pixels */
     int height; /* pixels */
     int stashed_width;
@@ -813,6 +813,8 @@ void term_osc8_close(struct terminal *term);
 
 bool term_ptmx_pause(struct terminal *term);
 bool term_ptmx_resume(struct terminal *term);
+
+int term_get_buffer_scale(struct terminal *term);
 
 static inline void term_reset_grapheme_state(struct terminal *term)
 {
