@@ -1513,9 +1513,12 @@ wayl_win_init(struct terminal *term, const char *token)
         LOG_ERR("failed to create wayland surface");
         goto out;
     }
-    win->fractional_scale = wp_fractional_scale_global_get_fractional_scale(
-        wayl->fractional_scale, win->surface);
-    wp_fractional_scale_v1_add_listener(win->fractional_scale, &fractional_scale_listener, win);
+    win->fractional_scale = NULL;
+    if (wayl->fractional_scale != NULL) {
+        win->fractional_scale = wp_fractional_scale_global_get_fractional_scale(
+            wayl->fractional_scale, win->surface);
+        wp_fractional_scale_v1_add_listener(win->fractional_scale, &fractional_scale_listener, win);
+    }
     win->fractional_scale_value = 0.;
 
     if (term->colors.alpha == 0xffff) {
@@ -1684,6 +1687,8 @@ wayl_win_destroy(struct wl_window *win)
         tll_remove(win->xdg_tokens, it);
     }
 #endif
+    if (win->fractional_scale != NULL)
+        wp_fractional_scale_v1_destroy(win->fractional_scale);
     if (win->frame_callback != NULL)
         wl_callback_destroy(win->frame_callback);
     if (win->xdg_toplevel_decoration != NULL)
@@ -1694,8 +1699,6 @@ wayl_win_destroy(struct wl_window *win)
         xdg_surface_destroy(win->xdg_surface);
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
-    if (win->fractional_scale != NULL)
-        wp_fractional_scale_v1_destroy(win->fractional_scale);
 
     wayl_roundtrip(win->term->wl);
 
@@ -1913,7 +1916,7 @@ wayl_win_subsurface_new_with_custom_parent(
     if (wayl->fractional_scale) {
         surf->fractional_scale = wp_fractional_scale_global_get_fractional_scale(
             wayl->fractional_scale, surf->surf);
-        wp_fractional_scale_v1_add_listener(win->fractional_scale, &fractional_scale_listener_subsurface, surf);
+        wp_fractional_scale_v1_add_listener(surf->fractional_scale, &fractional_scale_listener_subsurface, surf);
         win->fractional_scale_value = 0.;
     }
     return true;
@@ -1932,12 +1935,12 @@ wayl_win_subsurface_destroy(struct wl_surf_subsurf *surf)
 {
     if (surf == NULL)
         return;
+    if (surf->fractional_scale != NULL)
+        wp_fractional_scale_v1_destroy(surf->fractional_scale);
     if (surf->sub != NULL)
         wl_subsurface_destroy(surf->sub);
     if (surf->surf != NULL)
         wl_surface_destroy(surf->surf);
-    if (surf->fractional_scale != NULL)
-        wp_fractional_scale_v1_destroy(surf->fractional_scale);
 
     surf->surf = NULL;
     surf->sub = NULL;

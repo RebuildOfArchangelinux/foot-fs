@@ -1833,6 +1833,7 @@ render_csd_part(struct terminal *term,
 
 static void
 render_osd(struct terminal *term,
+           const struct wl_surf_subsurf *subserf,
            struct wl_surface *surf, struct wl_subsurface *sub_surf,
            struct fcft_font *font, struct buffer *buf,
            const char32_t *text, uint32_t _fg, uint32_t _bg,
@@ -1912,7 +1913,10 @@ render_osd(struct terminal *term,
     quirk_weston_subsurface_desync_on(sub_surf);
     wl_surface_attach(surf, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
-    wl_surface_set_buffer_scale(surf, term->scale);
+    wl_surface_set_buffer_scale(surf, term_get_buffer_scale(term));
+    if (subserf->fractional_scale != NULL)
+        wp_fractional_scale_v1_set_scale_factor(
+            subserf->fractional_scale, (uint32_t)(term->scale * (1 << 24)));
 
     struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
     if (region != NULL) {
@@ -1960,7 +1964,7 @@ render_csd_title(struct terminal *term, const struct csd_data *info,
 
     const int margin = M != NULL ? M->advance.x : win->csd.font->max_advance.x;
 
-    render_osd(term, surf->surf, surf->sub, win->csd.font,
+    render_osd(term, surf, surf->surf, surf->sub, win->csd.font,
                buf, title_text, fg, bg, margin,
                (buf->height - win->csd.font->height) / 2);
 
@@ -2432,13 +2436,13 @@ render_scrollback_position(struct terminal *term)
         break;
     }
 
-    const int scale = term->scale;
-    const int margin = 3 * scale;
+    const double scale = term->scale;
+    const double margin = 3 * scale;
 
-    const int width =
-        (2 * margin + cell_count * term->cell_width + scale - 1) / scale * scale;
-    const int height =
-        (2 * margin + term->cell_height + scale - 1) / scale * scale;
+    const double width =
+        (2 * margin + cell_count * term->cell_width + scale - 1);
+    const double height =
+        (2 * margin + term->cell_height + scale - 1);
 
     /* *Where* to render - parent relative coordinates */
     int surf_top = 0;
@@ -2466,8 +2470,8 @@ render_scrollback_position(struct terminal *term)
     }
     }
 
-    const int x = (term->width - margin - width) / scale * scale;
-    const int y = (term->margins.top + surf_top) / scale * scale;
+    const double x = term->width - margin - width;
+    const double y = term->margins.top + surf_top;
 
     if (y + height > term->height) {
         wl_surface_attach(win->scrollback_indicator.surf, NULL, 0, 0);
@@ -2479,7 +2483,7 @@ render_scrollback_position(struct terminal *term)
     struct buffer *buf = shm_get_buffer(chain, width, height);
 
     wl_subsurface_set_position(
-        win->scrollback_indicator.sub, x / scale, y / scale);
+        win->scrollback_indicator.sub, x, y);
 
     uint32_t fg = term->colors.table[0];
     uint32_t bg = term->colors.table[8 + 4];
@@ -2490,6 +2494,7 @@ render_scrollback_position(struct terminal *term)
 
     render_osd(
         term,
+        &win->scrollback_indicator,
         win->scrollback_indicator.surf,
         win->scrollback_indicator.sub,
         term->fonts[0], buf, text,
@@ -2527,6 +2532,7 @@ render_render_timer(struct terminal *term, struct timespec render_time)
 
     render_osd(
         term,
+        &win->render_timer,
         win->render_timer.surf,
         win->render_timer.sub,
         term->fonts[0], buf, text,
@@ -3582,7 +3588,9 @@ render_urls(struct terminal *term)
             (term->margins.top + y) / term->scale);
 
         render_osd(
-            term, surf, sub_surf, term->fonts[0], bufs[i], label,
+            term,
+            &(info[i].url->surf),
+            surf, sub_surf, term->fonts[0], bufs[i], label,
             fg, 0xffu << 24 | bg, x_margin, y_margin);
 
         free(info[i].text);
