@@ -450,7 +450,7 @@ struct terminal {
         int fd;
     } blink;
 
-    int scale;
+    double scale;
     int width;  /* pixels */
     int height; /* pixels */
     int stashed_width;

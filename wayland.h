@@ -15,6 +15,8 @@
 #include <xdg-decoration-unstable-v1.h>
 #include <xdg-output-unstable-v1.h>
 #include <xdg-shell.h>
+#include <viewporter.h>
+#include <fractional-scale-v1.h>
 
 #if defined(HAVE_XDG_ACTIVATION)
  #include <xdg-activation-v1.h>
@@ -130,7 +132,7 @@ struct seat {
         struct wl_surface *surface;
         struct wl_cursor_theme *theme;
         struct wl_cursor *cursor;
-        int scale;
+        double scale;
         bool hidden;
 
         const char *xcursor;
@@ -292,6 +294,7 @@ struct monitor {
 struct wl_surf_subsurf {
     struct wl_surface *surf;
     struct wl_subsurface *sub;
+    struct wp_viewport *viewport;
 };
 
 struct wl_url {
@@ -327,6 +330,8 @@ struct wl_window {
     tll(struct xdg_activation_token_context *) xdg_tokens;
     bool urgency_token_is_pending;
 #endif
+    struct wp_viewport *viewport;
+    struct wp_fractional_scale_v1 *fractional_scale;
 
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
 
@@ -378,6 +383,7 @@ struct wl_window {
     } configure;
 
     int resize_timeout_fd;
+    double scale;
 };
 
 struct terminal;
@@ -408,6 +414,10 @@ struct wayland {
     bool presentation_timings;
     struct wp_presentation *presentation;
     uint32_t presentation_clock_id;
+
+    struct wp_viewporter *viewporter;
+    struct wp_fractional_scale_manager_v1
+        *fractional_scale_manager;
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct zwp_text_input_manager_v3 *text_input_manager;

@@ -128,6 +128,8 @@ wl_proto_xml = [
   wayland_protocols_datadir + '/unstable/primary-selection/primary-selection-unstable-v1.xml',
   wayland_protocols_datadir + '/stable/presentation-time/presentation-time.xml',
   wayland_protocols_datadir + '/unstable/text-input/text-input-unstable-v3.xml',
+  wayland_protocols_datadir + '/stable/viewporter/viewporter.xml',
+  'fractional-scale-v1.xml',
   ]
 
 if wayland_protocols.version().version_compare('>=1.21')

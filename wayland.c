@@ -32,12 +32,12 @@
 #include "xmalloc.h"
 
 static void
-csd_reload_font(struct wl_window *win, int old_scale)
+csd_reload_font(struct wl_window *win, double old_scale)
 {
     struct terminal *term = win->term;
     const struct config *conf = term->conf;
 
-    const int scale = term->scale;
+    const double scale = term->scale;
 
     bool enable_csd = win->csd_mode == CSD_YES && !win->is_fullscreen;
     if (!enable_csd)
@@ -53,9 +53,9 @@ csd_reload_font(struct wl_window *win, int old_scale)
 
     char pixelsize[32];
     snprintf(pixelsize, sizeof(pixelsize),
-             "pixelsize=%u", conf->csd.title_height * scale * 1 / 2);
+             "pixelsize=%u", (int)round(conf->csd.title_height * scale * 1 / 2));
 
-    LOG_DBG("loading CSD font \"%s:%s\" (old-scale=%d, scale=%d)",
+    LOG_DBG("loading CSD font \"%s:%s\" (old-scale=%lf, scale=%lf)",
             patterns[0], pixelsize, old_scale, scale);
 
     win->csd.font = fcft_from_name(conf->csd.font.count, patterns, pixelsize);
@@ -334,9 +334,9 @@ update_term_for_output_change(struct terminal *term)
     if (tll_length(term->window->on_outputs) == 0)
         return;
 
-    int old_scale = term->scale;
+    double old_scale = term->scale;
 
-    render_resize(term, term->width / term->scale, term->height / term->scale);
+    render_resize(term, round(term->width / term->scale), round(term->height / term->scale));
     term_font_dpi_changed(term, old_scale);
     term_font_subpixel_changed(term);
     csd_reload_font(term->window, old_scale);
@@ -870,6 +870,21 @@ static const struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration
     .configure = &xdg_toplevel_decoration_configure,
 };
 
+static void fractional_scale_handle_preferred_scale(void *data, struct
+		wp_fractional_scale_v1 *info, wl_fixed_t scale) {
+	struct wl_window *win = data;
+
+	double dscale = wl_fixed_to_double(scale);
+	fprintf(stderr, "Preferred scale: %lf\n", dscale);
+
+	win->scale = dscale;
+	update_term_for_output_change(win->term);
+}
+
+static const struct wp_fractional_scale_v1_listener fractional_scale_listener = {
+	.preferred_scale = fractional_scale_handle_preferred_scale,
+};
+
 static bool
 fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
 {
@@ -1116,6 +1131,27 @@ handle_global(void *data, struct wl_registry *registry,
             seat_add_text_input(&it->item);
     }
 #endif
+
+    else if (strcmp(interface,
+                wp_fractional_scale_manager_v1_interface.name) == 0)
+        {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->fractional_scale_manager = wl_registry_bind(
+            wayl->registry, name,
+            &wp_fractional_scale_manager_v1_interface, required);
+    }
+
+    else if (strcmp(interface, wp_viewporter_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->viewporter = wl_registry_bind(
+            wayl->registry, name, &wp_viewporter_interface, required);
+    }
 }
 
 static void
@@ -1490,6 +1526,16 @@ wayl_win_init(struct terminal *term, const char *token)
 
     wl_surface_add_listener(win->surface, &surface_listener, win);
 
+    if (wayl->fractional_scale_manager) {
+        win->fractional_scale =
+            wp_fractional_scale_manager_v1_get_fractional_scale(wayl->fractional_scale_manager,
+                win->surface);
+        wp_fractional_scale_v1_add_listener(win->fractional_scale,
+            &fractional_scale_listener, win);
+    }
+    win->viewport = wp_viewporter_get_viewport(wayl->viewporter,
+        win->surface);
+
     win->xdg_surface = xdg_wm_base_get_xdg_surface(wayl->shell, win->surface);
     xdg_surface_add_listener(win->xdg_surface, &xdg_surface_listener, win);
 
@@ -1609,6 +1655,9 @@ wayl_win_destroy(struct wl_window *win)
     }
 
     wayl_roundtrip(win->term->wl);
+
+    wp_viewport_set_destination(win->viewport,
+            win->configure.width, win->configure.height);
 
         /* Main window */
     wl_surface_attach(win->surface, NULL, 0, 0);
@@ -1865,6 +1914,9 @@ wayl_win_subsurface_new_with_custom_parent(
 
     surf->surf = main_surface;
     surf->sub = sub;
+    surf->viewport = wp_viewporter_get_viewport(wayl->viewporter,
+        main_surface);
+
     return true;
 }
 

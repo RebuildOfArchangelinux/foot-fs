@@ -1804,15 +1804,15 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
 }
 
 static void
-csd_commit(struct terminal *term, struct wl_surface *surf, struct buffer *buf)
+csd_commit(struct terminal *term, struct wl_surf_subsurf *surf, struct buffer *buf)
 {
-    xassert(buf->width % term->scale == 0);
-    xassert(buf->height % term->scale == 0);
+//    xassert(buf->width % term->scale == 0);
+//    xassert(buf->height % term->scale == 0);
 
-    wl_surface_attach(surf, buf->wl_buf, 0, 0);
-    wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
-    wl_surface_set_buffer_scale(surf, term->scale);
-    wl_surface_commit(surf);
+    wl_surface_attach(surf->surf, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(surf->surf, 0, 0, buf->width, buf->height);
+//    wl_surface_set_buffer_scale(surf, term->scale);
+    wl_surface_commit(surf->surf);
 }
 
 static void
@@ -1902,13 +1902,14 @@ render_osd(struct terminal *term,
     pixman_image_unref(src);
     pixman_image_set_clip_region32(buf->pix[0], NULL);
 
-    xassert(buf->width % term->scale == 0);
-    xassert(buf->height % term->scale == 0);
+//    xassert(buf->width % term->scale == 0);
+//    xassert(buf->height % term->scale == 0);
 
     quirk_weston_subsurface_desync_on(sub_surf);
+
     wl_surface_attach(surf, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
-    wl_surface_set_buffer_scale(surf, term->scale);
+//    wl_surface_set_buffer_scale(surf, term->scale);
 
     struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
     if (region != NULL) {
@@ -1931,8 +1932,8 @@ render_csd_title(struct terminal *term, const struct csd_data *info,
     if (info->width == 0 || info->height == 0)
         return;
 
-    xassert(info->width % term->scale == 0);
-    xassert(info->height % term->scale == 0);
+//    xassert(info->width % term->scale == 0);
+//    xassert(info->height % term->scale == 0);
 
     uint32_t bg = term->conf->csd.color.title_set
         ? term->conf->csd.color.title
@@ -1960,7 +1961,7 @@ render_csd_title(struct terminal *term, const struct csd_data *info,
                buf, title_text, fg, bg, margin,
                (buf->height - win->csd.font->height) / 2);
 
-    csd_commit(term, surf->surf, buf);
+    csd_commit(term, surf, buf);
     free(_title_text);
 }
 
@@ -1971,13 +1972,15 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx,
     xassert(term->window->csd_mode == CSD_YES);
     xassert(surf_idx >= CSD_SURF_LEFT && surf_idx <= CSD_SURF_BOTTOM);
 
-    struct wl_surface *surf = term->window->csd.surface[surf_idx].surf;
+    struct wl_surf_subsurf *ssurf
+        = &term->window->csd.surface[surf_idx];
+    struct wl_surface *surf = ssurf->surf;
 
     if (info->width == 0 || info->height == 0)
         return;
 
-    xassert(info->width % term->scale == 0);
-    xassert(info->height % term->scale == 0);
+//    xassert(info->width % term->scale == 0);
+//    xassert(info->height % term->scale == 0);
 
     {
         pixman_color_t color = color_hex_to_pixman_with_alpha(0, 0);
@@ -2049,7 +2052,7 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx,
             &(pixman_rectangle16_t){x, y, w, h});
     }
 
-    csd_commit(term, surf, buf);
+    csd_commit(term, ssurf, buf);
 }
 
 static pixman_color_t
@@ -2225,13 +2228,15 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx,
     xassert(term->window->csd_mode == CSD_YES);
     xassert(surf_idx >= CSD_SURF_MINIMIZE && surf_idx <= CSD_SURF_CLOSE);
 
-    struct wl_surface *surf = term->window->csd.surface[surf_idx].surf;
+    struct wl_surf_subsurf *ssurf =
+        &term->window->csd.surface[surf_idx];
+    struct wl_surface *surf = ssurf->surf;
 
     if (info->width == 0 || info->height == 0)
         return;
 
-    xassert(info->width % term->scale == 0);
-    xassert(info->height % term->scale == 0);
+//    xassert(info->width % term->scale == 0);
+//    xassert(info->height % term->scale == 0);
 
     uint32_t _color;
     uint16_t alpha = 0xffff;
@@ -2293,7 +2298,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx,
         break;
     }
 
-    csd_commit(term, surf, buf);
+    csd_commit(term, ssurf, buf);
 }
 
 static void
@@ -2315,24 +2320,30 @@ render_csd(struct terminal *term)
         const int width = infos[i].width;
         const int height = infos[i].height;
 
-        struct wl_surface *surf = term->window->csd.surface[i].surf;
-        struct wl_subsurface *sub = term->window->csd.surface[i].sub;
+        struct wl_surf_subsurf *surf = &term->window->csd.surface[i];
+        struct wl_surface *wl_surf = surf->surf;
+        struct wl_subsurface *wl_sub = surf->sub;
 
-        xassert(surf != NULL);
-        xassert(sub != NULL);
+        xassert(wl_surf != NULL);
+        xassert(wl_sub != NULL);
 
         if (width == 0 || height == 0) {
             widths[i] = heights[i] = 0;
-            wl_subsurface_set_position(sub, 0, 0);
-            wl_surface_attach(surf, NULL, 0, 0);
-            wl_surface_commit(surf);
+            wp_viewport_set_destination(surf->viewport, -1, -1);
+            wl_subsurface_set_position(wl_sub, 0, 0);
+            wl_surface_attach(wl_surf, NULL, 0, 0);
+            wl_surface_commit(wl_surf);
             continue;
         }
 
-        widths[i] = width;
-        heights[i] = height;
+        widths[i] = round(x + width) - round(x);
+        heights[i] = round(y + height) - round(y);
 
-        wl_subsurface_set_position(sub, x / term->scale, y / term->scale);
+        wp_viewport_set_destination(surf->viewport,
+                round(width / term->scale),
+                round(height / term->scale));
+
+        wl_subsurface_set_position(wl_sub, x / term->scale, y / term->scale);
     }
 
     struct buffer *bufs[CSD_SURF_COUNT];
@@ -2428,13 +2439,13 @@ render_scrollback_position(struct terminal *term)
         break;
     }
 
-    const int scale = term->scale;
-    const int margin = 3 * scale;
+    const double scale = term->scale;
+    const double margin = 3 * scale;
 
     const int width =
-        (2 * margin + cell_count * term->cell_width + scale - 1) / scale * scale;
+        round(2.0 * margin + cell_count * term->cell_width);
     const int height =
-        (2 * margin + term->cell_height + scale - 1) / scale * scale;
+        round(2.0 * margin + term->cell_height);
 
     /* *Where* to render - parent relative coordinates */
     int surf_top = 0;
@@ -2969,7 +2980,7 @@ grid_render(struct terminal *term)
     term->window->frame_callback = wl_surface_frame(term->window->surface);
     wl_callback_add_listener(term->window->frame_callback, &frame_listener, term);
 
-    wl_surface_set_buffer_scale(term->window->surface, term->scale);
+//    wl_surface_set_buffer_scale(term->window->surface, term->scale);
 
     if (term->wl->presentation != NULL && term->conf->presentation_timings) {
         struct timespec commit_time;
@@ -3003,8 +3014,11 @@ grid_render(struct terminal *term)
             term->window->surface, 0, 0, INT32_MAX, INT32_MAX);
     }
 
-    xassert(buf->width % term->scale == 0);
-    xassert(buf->height % term->scale == 0);
+//    xassert(buf->width % term->scale == 0);
+//    xassert(buf->height % term->scale == 0);
+    wp_viewport_set_destination(term->window->viewport,
+            round(buf->width / term->scale),
+            round(buf->height / term->scale));
 
     wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
     wl_surface_commit(term->window->surface);
@@ -3068,10 +3082,12 @@ render_search_box(struct terminal *term)
     const size_t total_cells = c32swidth(text, text_len);
     const size_t wanted_visible_cells = max(20, total_cells);
 
-    xassert(term->scale >= 1);
+//    xassert(term->scale >= 1);
     const int scale = term->scale;
 
     const size_t margin = 3 * scale;
+
+    // These calculations do not round correctly right now
 
     const size_t width = term->width - 2 * margin;
     const size_t visible_width = min(
@@ -3329,8 +3345,11 @@ render_search_box(struct terminal *term)
         margin / scale,
         max(0, (int32_t)term->height - height - margin) / scale);
 
-    xassert(buf->width % scale == 0);
-    xassert(buf->height % scale == 0);
+//    xassert(buf->width % scale == 0);
+//    xassert(buf->height % scale == 0);
+    wp_viewport_set_destination(term->window->search.viewport,
+            round(buf->width / term->scale),
+            round(buf->height / term->scale));
 
     wl_surface_attach(term->window->search.surf, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(term->window->search.surf, 0, 0, width, height);
@@ -3802,17 +3821,20 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     if (term->cell_width == 0 && term->cell_height == 0)
         return false;
 
-    int scale = -1;
-    tll_foreach(term->window->on_outputs, it) {
-        if (it->item->scale > scale)
-            scale = it->item->scale;
+    double scale = -1;
+    if (!term->window->fractional_scale) {
+        tll_foreach(term->window->on_outputs, it) {
+            if (it->item->scale > scale)
+                scale = it->item->scale;
+        }
+    } else {
+        scale = term->window->scale;
     }
 
     if (scale < 0) {
         /* Haven't 'entered' an output yet? */
         scale = term->scale;
     }
-
     width *= scale;
     height *= scale;
 
@@ -3856,13 +3878,13 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
                  * Ensure we can scale to logical size, and back to
                  * pixels without truncating.
                  */
-                if (width % scale)
-                    width += scale - width % scale;
-                if (height % scale)
-                    height += scale - height % scale;
+//                if (width % scale)
+//                    width += scale - width % scale;
+//                if (height % scale)
+//                    height += scale - height % scale;
 
-                xassert(width % scale == 0);
-                xassert(height % scale == 0);
+//                xassert(width % scale == 0);
+//                xassert(height % scale == 0);
                 break;
             }
         }
@@ -4120,8 +4142,8 @@ damage_view:
             term->window->xdg_surface,
             -border_width,
             -title_height - border_width,
-            term->width / term->scale + 2 * border_width,
-            term->height / term->scale + title_height + 2 * border_width);
+            round(term->width / term->scale + 2 * border_width),
+            round(term->height / term->scale + title_height + 2 * border_width));
     }
 
     tll_free(term->normal.scroll_damage);

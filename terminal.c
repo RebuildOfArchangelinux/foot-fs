@@ -956,11 +956,10 @@ reload_fonts(struct terminal *term)
             bool use_px_size = term->font_sizes[i][j].px_size > 0;
             char size[64];
 
-            const int scale = term->font_is_sized_by_dpi ? 1 : term->scale;
-
+            const double scale = term->font_is_sized_by_dpi ? 1 : term->scale;
             if (use_px_size)
                 snprintf(size, sizeof(size), ":pixelsize=%d",
-                         term->font_sizes[i][j].px_size * scale);
+                         (int)round(term->font_sizes[i][j].px_size * scale));
             else
                 snprintf(size, sizeof(size), ":size=%.2f",
                          term->font_sizes[i][j].pt_size * (double)scale);
