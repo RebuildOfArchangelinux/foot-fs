@@ -1881,8 +1881,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 
     xassert(term != NULL);
 
-    int x = wl_fixed_to_int(surface_x) * term->scale;
-    int y = wl_fixed_to_int(surface_y) * term->scale;
+    int x = wl_fixed_to_int(surface_x) * term_get_buffer_scale(term);
+    int y = wl_fixed_to_int(surface_y) * term_get_buffer_scale(term);
 
     seat->pointer.hidden = false;
     seat->mouse.x = x;

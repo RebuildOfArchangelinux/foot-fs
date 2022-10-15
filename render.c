@@ -3915,6 +3915,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->width = width;
     term->height = height;
     term->scale = scale;
+    printf("Term pixel size %d,%d\n", width, height);
 
     const uint32_t scrollback_lines = term->render.scrollback_lines;
 
@@ -4134,6 +4135,10 @@ damage_view:
         const int border_width =
             border_shown ? term->conf->csd.border_width_visible : 0;
 
+        if (term->window->fractional_scale_value != 0.f)
+          wp_fractional_scale_v1_set_scale_factor(
+              term->window->fractional_scale,
+              (uint32_t)(term->scale * (1 << 24)));
         xdg_surface_set_window_geometry(
             term->window->xdg_surface,
             -border_width * scale,
