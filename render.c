@@ -3810,7 +3810,7 @@ send_dimensions_to_client(struct terminal *term)
 
 /* Move to terminal.c? */
 static bool
-maybe_resize(struct terminal *term, int width, int height, bool force)
+maybe_resize(struct terminal *term, double width, double height, bool force)
 {
     if (term->shutdown.in_progress)
         return false;
@@ -3837,6 +3837,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     }
     width *= scale;
     height *= scale;
+    width = round(width);
+    height = round(height);
 
     if (width == 0 && height == 0) {
         /*
