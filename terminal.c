@@ -799,6 +799,8 @@ get_font_dpi(const struct terminal *term)
      * the physical DPI, that ends up being right when later
      * downscaled by the compositor.
      */
+    // NOTE: Now that the compositor supports fractional scaling, the comment
+    // above no longer applies. We now use physical DPI of the monitor.
 
     /* Use highest DPI from outputs we're mapped on */
     double dpi = 0.0;
@@ -2064,7 +2066,7 @@ term_font_size_reset(struct terminal *term)
 }
 
 bool
-term_font_dpi_changed(struct terminal *term, int old_scale)
+term_font_dpi_changed(struct terminal *term, double old_scale)
 {
     float dpi = get_font_dpi(term);
     xassert(term->scale > 0);
@@ -2080,7 +2082,7 @@ term_font_dpi_changed(struct terminal *term, int old_scale)
 
     if (need_font_reload) {
         LOG_DBG("DPI/scale change: DPI-awareness=%s, "
-                "DPI: %.2f -> %.2f, scale: %d -> %d, "
+                "DPI: %.2f -> %.2f, scale: %lf -> %lf, "
                 "sizing font based on monitor's %s",
                 term->conf->dpi_aware == DPI_AWARE_AUTO ? "auto" :
                 term->conf->dpi_aware == DPI_AWARE_YES ? "yes" : "no",

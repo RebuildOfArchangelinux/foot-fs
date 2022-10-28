@@ -407,8 +407,13 @@ output_update_ppi(struct monitor *mon)
     mon->ppi.scaled.x = scaled_width / x_inches;
     mon->ppi.scaled.y = scaled_height / y_inches;
 
-    float px_diag = sqrt(pow(scaled_width, 2) + pow(scaled_height, 2));
-    mon->dpi = px_diag / mon->inch * mon->scale;
+    bool has_fractional_scale = mon->wayl->fractional_scale_manager;
+    int width = has_fractional_scale ? mon->dim.px_real.width : scaled_width;
+    int height = has_fractional_scale ? mon->dim.px_real.height : scaled_height;
+    int scale = has_fractional_scale ? 1 : mon->scale;
+
+    float px_diag = sqrt(pow(width, 2) + pow(height, 2));
+    mon->dpi = px_diag / mon->inch * scale;
 }
 
 static void
