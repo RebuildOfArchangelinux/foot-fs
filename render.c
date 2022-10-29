@@ -4205,7 +4205,7 @@ render_xcursor_update(struct seat *seat)
 
     xassert(seat->pointer.cursor != NULL);
 
-    const int scale = seat->pointer.scale;
+    const int scale = ceil(seat->pointer.scale);
     struct wl_cursor_image *image = seat->pointer.cursor->images[0];
 
     wl_surface_attach(

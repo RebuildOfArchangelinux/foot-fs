@@ -435,7 +435,7 @@ struct wayland *wayl_init(
     bool presentation_timings);
 void wayl_destroy(struct wayland *wayl);
 
-bool wayl_reload_xcursor_theme(struct seat *seat, int new_scale);
+bool wayl_reload_xcursor_theme(struct seat *seat, double new_scale);
 
 void wayl_flush(struct wayland *wayl);
 void wayl_roundtrip(struct wayland *wayl);

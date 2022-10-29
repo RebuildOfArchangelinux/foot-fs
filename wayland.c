@@ -1716,7 +1716,7 @@ wayl_win_destroy(struct wl_window *win)
 }
 
 bool
-wayl_reload_xcursor_theme(struct seat *seat, int new_scale)
+wayl_reload_xcursor_theme(struct seat *seat, double new_scale)
 {
     if (seat->pointer.theme != NULL && seat->pointer.scale == new_scale) {
         /* We already have a theme loaded, and the scale hasn't changed */
@@ -1749,11 +1749,11 @@ wayl_reload_xcursor_theme(struct seat *seat, int new_scale)
 
     const char *xcursor_theme = getenv("XCURSOR_THEME");
 
-    LOG_INFO("cursor theme: %s, size: %d, scale: %d",
+    LOG_INFO("cursor theme: %s, size: %d, scale: %lf",
              xcursor_theme, xcursor_size, new_scale);
 
     seat->pointer.theme = wl_cursor_theme_load(
-        xcursor_theme, xcursor_size * new_scale, seat->wayl->shm);
+        xcursor_theme, xcursor_size * ceil(new_scale), seat->wayl->shm);
 
     if (seat->pointer.theme == NULL) {
         LOG_ERR("failed to load cursor theme");
